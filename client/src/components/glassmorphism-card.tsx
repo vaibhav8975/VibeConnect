@@ -1,7 +1,8 @@
-import { Card, CardProps } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import * as React from "react";
 
-interface GlassmorphismCardProps extends CardProps {
+interface GlassmorphismCardProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
 }
 

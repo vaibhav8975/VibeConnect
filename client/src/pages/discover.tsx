@@ -20,7 +20,7 @@ export default function Discover() {
   const [showMatchModal, setShowMatchModal] = useState(false);
   const [matchedUser, setMatchedUser] = useState<User | null>(null);
 
-  const { data: profiles, isLoading } = useQuery({
+  const { data: profiles, isLoading } = useQuery<User[]>({
     queryKey: ["/api/discover"],
     enabled: isAuthenticated,
     retry: false,
@@ -32,7 +32,7 @@ export default function Discover() {
       return response.json();
     },
     onSuccess: (data) => {
-      if (data.isNewMatch) {
+      if (data.isNewMatch && profiles && profiles[currentProfileIndex]) {
         setMatchedUser(profiles[currentProfileIndex]);
         setShowMatchModal(true);
       }
@@ -59,7 +59,7 @@ export default function Discover() {
   });
 
   const nextProfile = () => {
-    if (currentProfileIndex < profiles?.length - 1) {
+    if (profiles && currentProfileIndex < profiles.length - 1) {
       setCurrentProfileIndex(currentProfileIndex + 1);
     } else {
       // Load more profiles

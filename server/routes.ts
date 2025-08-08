@@ -131,7 +131,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         // Update existing match
         const isUser1 = existingMatch.user1Id === userId;
-        const updateData = isUser1 
+        const updateData: any = isUser1 
           ? { user1Liked: liked }
           : { user2Liked: liked };
         
