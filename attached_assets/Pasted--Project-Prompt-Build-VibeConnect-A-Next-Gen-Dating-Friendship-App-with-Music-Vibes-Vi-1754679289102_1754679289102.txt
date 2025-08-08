@@ -1,0 +1,79 @@
+💡 Project Prompt: Build **VibeConnect** – A Next-Gen Dating & Friendship App with Music, Vibes & Video Calling
+
+🧠 Idea:
+Build a full-stack web application called **VibeConnect** – a modern, stylish platform where users find **girlfriends, boyfriends, or meaningful friends** based on **personality, music, and vibes**, not just appearance. This is NOT a clone of Bumble or Hinge — it's fresh, unique, and built for deeper connections.
+
+🎯 Goals:
+- Encourage real emotional & musical connections
+- Offer a beautiful, interactive, and safe user experience
+- Let users try before signing up
+- Monetize with premium features after 30 messages
+
+🚀 Core Features:
+
+🔐 Authentication:
+- Landing page with: **Sign Up**, **Sign In**, and **Try Without Signup**
+- Profile setup includes: name, photos, interests, preferences (friendship/dating), personality quiz
+- Delete account option in profile settings
+
+📸 Photo + Music:
+- Upload multiple profile photos
+- Attach a short music clip (HTML5 Audio or Spotify/SoundCloud embed)
+- Auto-play on hover/click
+- Optional visualizer or waveform animation
+
+💞 Matching System:
+- Algorithm based on personality quiz + shared interests
+- Users can like profiles
+- “You Just Vibed!” popup when mutual match occurs
+
+💬 Chat:
+- Real-time messaging using Socket.IO or Firebase
+- Show message count
+- After 30 messages, display premium modal:
+  > “🎉 You’ve hit 30 free messages!  
+  Upgrade to VibeConnect+ for ₹199/week to unlock unlimited chats, calls, and VIP features.”
+
+📞 Audio/Video Calling:
+- Available only after a mutual match
+- Use WebRTC or Daily.co for implementation
+- Call UI with emoji reactions and end-call prompt
+
+🎵 VibeBoard (Explore Tab):
+- Public posts with text + music
+- Engage with other users casually
+- Good for social discovery
+
+🔔 Notifications:
+- In-app and email for matches, messages, calls
+
+🛡️ Safety:
+- Block/report users
+- Basic moderation filters
+- Optional profile verification
+
+🏆 Gamification:
+- Daily login rewards
+- Vibe Levels or Badges for activity
+
+🎨 UI/UX Design:
+- Use **Tailwind CSS** with modern gradients (pink, blue, purple)
+- Neon glow buttons, swipeable cards, animated transitions
+- Fully mobile-responsive
+- Focus on simplicity, elegance, and fun
+
+🛠️ Suggested Stack:
+- Frontend: React.js + Tailwind CSS
+- Backend: Node.js + Express.js
+- Auth: Firebase Auth or JWT
+- Database: MongoDB or Firebase Firestore
+- Real-time Chat: Socket.IO
+- Call: WebRTC or Daily.co
+- Music: HTML5 Audio or Spotify embed
+
+🧪 Bonus:
+- A/B testing for new features
+- Dark mode toggle
+- Light profile customization (fonts, background music, etc.)
+
+🔥 Let the user experience feel like they’re discovering **vibes, not just people**.
