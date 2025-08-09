@@ -9,6 +9,7 @@ import {
   integer,
   boolean,
   uuid,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -114,7 +115,9 @@ export const postLikes = pgTable("post_likes", {
   postId: uuid("post_id").references(() => vibeboardPosts.id).notNull(),
   userId: varchar("user_id").references(() => users.id).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => [
+  uniqueIndex("u_post_likes_post_user").on(table.postId, table.userId),
+]);
 
 // Post comments table
 export const postComments = pgTable("post_comments", {
