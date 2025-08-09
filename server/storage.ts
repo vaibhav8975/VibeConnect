@@ -28,7 +28,7 @@ import {
   type InsertUserReport,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, or, desc, sql, ne, inArray } from "drizzle-orm";
+import { eq, and, or, desc, sql, ne, inArray, not } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (mandatory for Replit Auth)
@@ -145,27 +145,40 @@ export class DatabaseStorage implements IStorage {
 
   // Matching operations
   async getDiscoverProfiles(userId: string, limit = 10): Promise<User[]> {
-    // Get blocked users
+    // 1. Gather IDs that should be excluded from discovery results.
     const blockedUsers = await this.getBlockedUsers(userId);
-    
-    // Get users that current user has already seen/matched with
+
+    // Users that the current user has already interacted with (liked / disliked)
     const seenUsers = await db
       .select({ userId: matches.user2Id })
       .from(matches)
       .where(eq(matches.user1Id, userId));
-    
-    const seenUserIds = seenUsers.map(u => u.userId);
+
+    const seenUserIds = seenUsers.map((u) => u.userId);
+
+    // Always exclude the current user as well.
     const excludeIds = [...blockedUsers, ...seenUserIds, userId];
+
+    /*
+      Instead of excluding only the first ID (the previous, buggy behaviour),
+      we now exclude ALL IDs using a NOT IN clause when there are any IDs to
+      exclude.  Drizzle-ORM does not provide a dedicated helper for NOT IN, but
+      we can achieve the same with `not(inArray())`.
+    */
+
+    // Base condition: profile must be complete
+    const baseCondition = eq(users.isProfileComplete, true);
+
+    // If there are IDs to exclude, add a NOT IN condition. Otherwise, use the
+    // base condition by itself to avoid invoking `and()` with a single param.
+    const finalCondition = excludeIds.length > 0
+      ? and(baseCondition, not(inArray(users.id, excludeIds)))
+      : baseCondition;
 
     return await db
       .select()
       .from(users)
-      .where(
-        and(
-          eq(users.isProfileComplete, true),
-          excludeIds.length > 0 ? ne(users.id, excludeIds[0]) : undefined
-        )
-      )
+      .where(finalCondition)
       .limit(limit);
   }
 
@@ -307,6 +320,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async unlikePost(postId: string, userId: string): Promise<void> {
+    // Remove the like entry first.
     await db
       .delete(postLikes)
       .where(
@@ -315,11 +329,14 @@ export class DatabaseStorage implements IStorage {
           eq(postLikes.userId, userId)
         )
       );
-    
-    // Decrement like count
+
+    /*
+      Safely decrement the like counter without allowing it to become negative.
+      We utilise SQL's `GREATEST` function to ensure the value bottoms out at 0.
+    */
     await db
       .update(vibeboardPosts)
-      .set({ likes: sql`${vibeboardPosts.likes} - 1` })
+      .set({ likes: sql`GREATEST(${vibeboardPosts.likes} - 1, 0)` })
       .where(eq(vibeboardPosts.id, postId));
   }
 
