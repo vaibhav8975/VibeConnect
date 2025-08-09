@@ -67,6 +67,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete('/api/profile/photos/:id', isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
+      
+      // Verify the photo belongs to the authenticated user
+      const userPhotos = await storage.getUserPhotos(userId);
+      const photoExists = userPhotos.some(photo => photo.id === req.params.id);
+      
+      if (!photoExists) {
+        return res.status(403).json({ message: "Unauthorized: Photo does not belong to user" });
+      }
+      
       await storage.deleteUserPhoto(req.params.id);
       res.json({ success: true });
     } catch (error) {

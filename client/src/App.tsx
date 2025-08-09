@@ -18,15 +18,19 @@ import Profile from "@/pages/profile";
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
 
+  // Show loading state while authentication is being checked
+  if (isLoading) {
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+  }
+
   return (
     <Switch>
-      {isLoading || !isAuthenticated ? (
+      {!isAuthenticated ? (
         <>
           <Route path="/" component={Landing} />
           <Route path="/signup" component={Signup} />
           <Route path="/personality-quiz" component={PersonalityQuiz} />
-          <Route path="/discover" component={Discover} />
-          <Route path="/vibeboard" component={VibeBoard} />
+          {/* Remove access to protected routes for unauthenticated users */}
         </>
       ) : (
         <>
