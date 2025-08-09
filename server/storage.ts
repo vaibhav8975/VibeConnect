@@ -28,7 +28,7 @@ import {
   type InsertUserReport,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, or, desc, sql, ne, inArray } from "drizzle-orm";
+import { eq, and, or, desc, sql, ne, inArray, notInArray } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (mandatory for Replit Auth)
@@ -38,6 +38,7 @@ export interface IStorage {
   // Profile operations
   updateUserProfile(id: string, data: Partial<User>): Promise<User>;
   getUserPhotos(userId: string): Promise<UserPhoto[]>;
+  getUserPhoto(id: string): Promise<UserPhoto | undefined>;
   addUserPhoto(photo: InsertUserPhoto): Promise<UserPhoto>;
   deleteUserPhoto(id: string): Promise<void>;
   getUserMusicClips(userId: string): Promise<UserMusicClip[]>;
@@ -112,6 +113,14 @@ export class DatabaseStorage implements IStorage {
       .orderBy(userPhotos.order);
   }
 
+  async getUserPhoto(id: string): Promise<UserPhoto | undefined> {
+    const [photo] = await db
+      .select()
+      .from(userPhotos)
+      .where(eq(userPhotos.id, id));
+    return photo;
+  }
+
   async addUserPhoto(photo: InsertUserPhoto): Promise<UserPhoto> {
     const [userPhoto] = await db
       .insert(userPhotos)
@@ -163,7 +172,7 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           eq(users.isProfileComplete, true),
-          excludeIds.length > 0 ? ne(users.id, excludeIds[0]) : undefined
+          excludeIds.length > 0 ? notInArray(users.id, excludeIds) : undefined
         )
       )
       .limit(limit);

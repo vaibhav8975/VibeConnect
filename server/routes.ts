@@ -67,7 +67,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete('/api/profile/photos/:id', isAuthenticated, async (req: any, res) => {
     try {
-      await storage.deleteUserPhoto(req.params.id);
+      const userId = req.user.claims.sub;
+      const photoId = req.params.id;
+      
+      // Verify photo ownership before deletion
+      const photo = await storage.getUserPhoto(photoId);
+      if (!photo) {
+        return res.status(404).json({ message: "Photo not found" });
+      }
+      
+      if (photo.userId !== userId) {
+        return res.status(403).json({ message: "Unauthorized to delete this photo" });
+      }
+      
+      await storage.deleteUserPhoto(photoId);
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting photo:", error);
@@ -327,27 +340,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // WebSocket server for real-time messaging
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
   
+  // Map to store user ID to WebSocket connections
+  const userSockets = new Map<string, WebSocket>();
+  
   wss.on('connection', (ws: WebSocket, req) => {
     console.log('WebSocket connection established');
+    
+    // Extract user ID from query parameters or headers
+    const url = new URL(req.url || '', `http://${req.headers.host}`);
+    const token = url.searchParams.get('token');
+    
+    if (!token) {
+      ws.close(1008, 'Authentication required');
+      return;
+    }
+    
+    // Verify token and get user ID (simplified - in production use proper JWT verification)
+    let userId: string;
+    try {
+      // This is a simplified example - in production you'd verify the JWT token
+      const decoded = JSON.parse(Buffer.from(token, 'base64').toString());
+      userId = decoded.userId;
+      
+      if (!userId) {
+        ws.close(1008, 'Invalid token');
+        return;
+      }
+    } catch (error) {
+      ws.close(1008, 'Invalid token format');
+      return;
+    }
+    
+    // Store user's WebSocket connection
+    userSockets.set(userId, ws);
     
     ws.on('message', (data) => {
       try {
         const message = JSON.parse(data.toString());
         
-        // Broadcast message to relevant users
-        // In a production app, you'd want to maintain user-to-socket mappings
-        wss.clients.forEach((client) => {
-          if (client !== ws && client.readyState === WebSocket.OPEN) {
-            client.send(JSON.stringify(message));
+        // Only send messages to the intended recipient
+        if (message.receiverId && userSockets.has(message.receiverId)) {
+          const recipientSocket = userSockets.get(message.receiverId);
+          if (recipientSocket && recipientSocket.readyState === WebSocket.OPEN) {
+            recipientSocket.send(JSON.stringify(message));
           }
-        });
+        }
       } catch (error) {
         console.error('WebSocket message error:', error);
       }
     });
     
     ws.on('close', () => {
-      console.log('WebSocket connection closed');
+      // Remove user's socket when connection closes
+      userSockets.delete(userId);
+      console.log(`WebSocket connection closed for user: ${userId}`);
+    });
+    
+    ws.on('error', (error) => {
+      console.error(`WebSocket error for user ${userId}:`, error);
+      userSockets.delete(userId);
     });
   });
 
