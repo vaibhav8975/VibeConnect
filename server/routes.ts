@@ -117,11 +117,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const { targetUserId, liked } = req.body;
 
-      // Check if match already exists
+      // Retrieve any existing match between the two users
       let existingMatch = await storage.getMatch(userId, targetUserId);
-      
+      let wasMatchAlready = existingMatch?.isMatch ?? false;
+
       if (!existingMatch) {
-        // Create new match record
+        // No record yet – create one
         const matchData = insertMatchSchema.parse({
           user1Id: userId,
           user2Id: targetUserId,
@@ -129,25 +130,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
         existingMatch = await storage.createMatch(matchData);
       } else {
-        // Update existing match
+        // Update the existing record with the latest like/dislike state
         const isUser1 = existingMatch.user1Id === userId;
-        const updateData: any = isUser1 
+
+        const updateData: any = isUser1
           ? { user1Liked: liked }
           : { user2Liked: liked };
-        
-        // Check if it's a mutual match
-        const isMatch = isUser1 
+
+        // Determine if the action results in a mutual match
+        const becomesMatch = isUser1
           ? liked && existingMatch.user2Liked
           : liked && existingMatch.user1Liked;
-        
-        if (isMatch) {
+
+        if (becomesMatch) {
           updateData.isMatch = true;
         }
-        
+
         existingMatch = await storage.updateMatch(existingMatch.id, updateData);
       }
 
-      res.json({ match: existingMatch, isNewMatch: existingMatch.isMatch });
+      // A new mutual match occurs when it wasn't a match before, but is now.
+      const isNewMatch = !wasMatchAlready && existingMatch.isMatch;
+
+      res.json({ match: existingMatch, isNewMatch });
     } catch (error) {
       console.error("Error creating match:", error);
       res.status(500).json({ message: "Failed to create match" });
