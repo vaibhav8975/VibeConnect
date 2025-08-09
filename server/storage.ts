@@ -148,13 +148,13 @@ export class DatabaseStorage implements IStorage {
     // Get blocked users
     const blockedUsers = await this.getBlockedUsers(userId);
     
-    // Get users that current user has already seen/matched with
-    const seenUsers = await db
-      .select({ userId: matches.user2Id })
+    // Get users that current user has already seen/matched with (both directions)
+    const seenRows = await db
+      .select({ user1Id: matches.user1Id, user2Id: matches.user2Id })
       .from(matches)
-      .where(eq(matches.user1Id, userId));
-    
-    const seenUserIds = seenUsers.map(u => u.userId);
+      .where(or(eq(matches.user1Id, userId), eq(matches.user2Id, userId)));
+
+    const seenUserIds = seenRows.map((row) => (row.user1Id === userId ? row.user2Id : row.user1Id));
     const excludeIds = [...blockedUsers, ...seenUserIds, userId];
 
     return await db
@@ -163,7 +163,8 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           eq(users.isProfileComplete, true),
-          excludeIds.length > 0 ? ne(users.id, excludeIds[0]) : undefined
+          // Exclude all blocked/seen/self when any exist
+          excludeIds.length > 0 ? sql`not (${inArray(users.id, excludeIds)})` : undefined,
         )
       )
       .limit(limit);
@@ -292,35 +293,51 @@ export class DatabaseStorage implements IStorage {
   }
 
   async likePost(like: InsertPostLike): Promise<PostLike> {
-    const [newLike] = await db
+    // Insert like; if duplicate (same postId/userId) exists, do nothing
+    const inserted = await db
       .insert(postLikes)
       .values(like)
+      .onConflictDoNothing()
       .returning();
-    
-    // Increment like count
-    await db
-      .update(vibeboardPosts)
-      .set({ likes: sql`${vibeboardPosts.likes} + 1` })
-      .where(eq(vibeboardPosts.id, like.postId));
-    
-    return newLike;
+
+    if (inserted.length > 0) {
+      // Increment like count only when we actually inserted a like
+      await db
+        .update(vibeboardPosts)
+        .set({ likes: sql`${vibeboardPosts.likes} + 1` })
+        .where(eq(vibeboardPosts.id, like.postId));
+
+      return inserted[0]!;
+    }
+
+    // If it already existed, return a synthetic PostLike shape
+    // Fetch the existing like to return a consistent object
+    const [existing] = await db
+      .select()
+      .from(postLikes)
+      .where(and(eq(postLikes.postId, like.postId), eq(postLikes.userId, like.userId)));
+
+    return existing!;
   }
 
   async unlikePost(postId: string, userId: string): Promise<void> {
-    await db
+    // Delete like and only decrement when a row was actually deleted
+    const deleted = await db
       .delete(postLikes)
       .where(
         and(
           eq(postLikes.postId, postId),
           eq(postLikes.userId, userId)
         )
-      );
+      )
+      .returning({ id: postLikes.id });
     
-    // Decrement like count
-    await db
-      .update(vibeboardPosts)
-      .set({ likes: sql`${vibeboardPosts.likes} - 1` })
-      .where(eq(vibeboardPosts.id, postId));
+    if (deleted.length > 0) {
+      await db
+        .update(vibeboardPosts)
+        .set({ likes: sql`${vibeboardPosts.likes} - 1` })
+        .where(eq(vibeboardPosts.id, postId));
+    }
   }
 
   async getPostComments(postId: string): Promise<(PostComment & { user: User })[]> {
