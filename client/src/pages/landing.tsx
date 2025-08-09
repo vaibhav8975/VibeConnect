@@ -47,7 +47,7 @@ export default function Landing() {
         <div className="space-y-4 w-full max-w-md">
           <Button 
             className="w-full bg-gradient-to-r from-vibe-pink to-vibe-purple text-white font-semibold py-4 px-8 rounded-full neon-glow transition-all duration-300 hover:scale-105"
-            onClick={() => window.location.href = "/api/login"}
+            onClick={() => setLocation("/login")}
           >
             Start Your Journey
           </Button>
@@ -62,7 +62,7 @@ export default function Landing() {
             Already have an account? 
             <button 
               className="text-vibe-teal hover:underline ml-1"
-              onClick={() => window.location.href = "/api/login"}
+              onClick={() => setLocation("/signup")}
             >
               Sign In
             </button>
