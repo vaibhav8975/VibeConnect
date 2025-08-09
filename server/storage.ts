@@ -28,7 +28,7 @@ import {
   type InsertUserReport,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, or, desc, sql, ne, inArray } from "drizzle-orm";
+import { eq, and, or, desc, sql, ne, inArray, notInArray } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (mandatory for Replit Auth)
@@ -164,7 +164,7 @@ export class DatabaseStorage implements IStorage {
         and(
           eq(users.isProfileComplete, true),
           // Exclude all blocked/seen/self when any exist
-          excludeIds.length > 0 ? sql`not (${inArray(users.id, excludeIds)})` : undefined,
+          excludeIds.length > 0 ? notInArray(users.id, excludeIds) : undefined,
         )
       )
       .limit(limit);
