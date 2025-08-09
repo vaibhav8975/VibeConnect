@@ -67,7 +67,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete('/api/profile/photos/:id', isAuthenticated, async (req: any, res) => {
     try {
-      await storage.deleteUserPhoto(req.params.id);
+      const userId = req.user.claims.sub;
+      const photoId = req.params.id;
+      
+      // Verify the photo belongs to the authenticated user
+      const photo = await storage.getUserPhoto(photoId);
+      if (!photo || photo.userId !== userId) {
+        return res.status(403).json({ message: "Unauthorized to delete this photo" });
+      }
+      
+      await storage.deleteUserPhoto(photoId);
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting photo:", error);
@@ -327,27 +336,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // WebSocket server for real-time messaging
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
   
+  // Store authenticated user connections
+  const userConnections = new Map<string, WebSocket>();
+  
   wss.on('connection', (ws: WebSocket, req) => {
     console.log('WebSocket connection established');
+    
+    // Extract user ID from query parameters or headers for authentication
+    const url = new URL(req.url || '', `http://${req.headers.host}`);
+    const token = url.searchParams.get('token');
+    
+    if (!token) {
+      ws.close(1008, 'Authentication required');
+      return;
+    }
+    
+    // Verify token and get user ID (simplified - in production use proper JWT verification)
+    let userId: string;
+    try {
+      // This is a simplified example - in production you'd verify the JWT token
+      const decoded = JSON.parse(Buffer.from(token, 'base64').toString());
+      userId = decoded.userId;
+      
+      if (!userId) {
+        ws.close(1008, 'Invalid token');
+        return;
+      }
+    } catch (error) {
+      ws.close(1008, 'Invalid token format');
+      return;
+    }
+    
+    // Store user connection
+    userConnections.set(userId, ws);
     
     ws.on('message', (data) => {
       try {
         const message = JSON.parse(data.toString());
         
-        // Broadcast message to relevant users
-        // In a production app, you'd want to maintain user-to-socket mappings
-        wss.clients.forEach((client) => {
-          if (client !== ws && client.readyState === WebSocket.OPEN) {
-            client.send(JSON.stringify(message));
-          }
-        });
+        // Only allow sending messages if user is authenticated
+        if (message.type === 'new_message' && message.matchId) {
+          // In production, verify the user has access to this match
+          // For now, we'll just broadcast to all authenticated users
+          userConnections.forEach((client, clientUserId) => {
+            if (clientUserId !== userId && client.readyState === WebSocket.OPEN) {
+              client.send(JSON.stringify({
+                ...message,
+                senderId: userId
+              }));
+            }
+          });
+        }
       } catch (error) {
         console.error('WebSocket message error:', error);
       }
     });
     
     ws.on('close', () => {
-      console.log('WebSocket connection closed');
+      console.log('WebSocket connection closed for user:', userId);
+      userConnections.delete(userId);
     });
   });
 

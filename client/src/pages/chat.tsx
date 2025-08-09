@@ -38,10 +38,12 @@ export default function Chat() {
 
   // WebSocket connection for real-time messaging
   useEffect(() => {
-    if (!isAuthenticated || !matchId) return;
+    if (!isAuthenticated || !matchId || !user) return;
 
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    // Create a simple token for WebSocket authentication
+    const token = Buffer.from(JSON.stringify({ userId: user.id })).toString('base64');
+    const wsUrl = `${protocol}//${window.location.host}/ws?token=${token}`;
     
     wsRef.current = new WebSocket(wsUrl);
     
